@@ -1,5 +1,6 @@
 import * as notifications from '@aws-cdk/aws-codestarnotifications';
 import * as iam from '@aws-cdk/aws-iam';
+import * as kms from '@aws-cdk/aws-kms';
 import { IResource, Resource, Token } from '@aws-cdk/core';
 import * as constructs from 'constructs';
 import { TopicPolicy } from './policy';
@@ -36,6 +37,13 @@ export interface ITopic extends IResource, notifications.INotificationRuleTarget
   readonly fifo: boolean;
 
   /**
+   * The master key used for server-side encryption, if encryption is configured.
+   *
+   * @attribute
+   */
+  readonly masterKey?: kms.IKey;
+
+  /**
    * Subscribe some endpoint to this topic
    */
   addSubscription(subscription: ITopicSubscription): void;
@@ -64,6 +72,8 @@ export abstract class TopicBase extends Resource implements ITopic {
   public abstract readonly topicName: string;
 
   public abstract readonly fifo: boolean;
+
+  public abstract readonly masterKey?: kms.IKey;
 
   /**
    * Controls automatic creation of policy objects.
@@ -124,9 +134,14 @@ export abstract class TopicBase extends Resource implements ITopic {
   }
 
   /**
-   * Grant topic publishing permissions to the given identity
+   * Grant topic publishing permissions to the given identity. If encryption is
+   * enabled, the KMS actions required for publishing will be granted.
    */
   public grantPublish(grantee: iam.IGrantable) {
+    if (this.masterKey) {
+      // https://docs.aws.amazon.com/sns/latest/dg/sns-key-management.html#send-to-encrypted-topic
+      this.masterKey.grant(grantee, 'kms:Decrypt', 'kms:GenerateDataKey*');
+    }
     return iam.Grant.addToPrincipalOrResource({
       grantee,
       actions: ['sns:Publish'],
