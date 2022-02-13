@@ -220,6 +220,46 @@ describe('Topic', () => {
 
   });
 
+  test('publish grant on encrypted topic', () => {
+    // GIVEN
+    const stack = new cdk.Stack();
+    const key = new kms.Key(stack, 'SnsKey', {});
+    const topic = new sns.Topic(stack, 'EncryptedTopic', {
+      masterKey: key,
+    });
+    const user = new iam.User(stack, 'User');
+
+    // WHEN
+    topic.grantPublish(user);
+
+    // THEN
+    Template.fromStack(stack).hasResourceProperties('AWS::IAM::Policy', {
+      'PolicyDocument': {
+        Version: '2012-10-17',
+        'Statement': [
+          {
+            'Action': [
+              'kms:Decrypt',
+              'kms:GenerateDataKey*',
+            ],
+            'Effect': 'Allow',
+            'Resource': {
+              'Fn::GetAtt': [
+                'SnsKeyC60844BB',
+                'Arn',
+              ],
+            },
+          },
+          {
+            'Action': 'sns:Publish',
+            'Effect': 'Allow',
+            'Resource': stack.resolve(topic.topicArn),
+          },
+        ],
+      },
+    });
+  });
+
   test('TopicPolicy passed document', () => {
     // GIVEN
     const stack = new cdk.Stack();

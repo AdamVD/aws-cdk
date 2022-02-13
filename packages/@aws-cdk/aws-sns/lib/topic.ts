@@ -115,6 +115,6 @@ export class Topic extends TopicBase {
     });
     this.topicName = this.getResourceNameAttribute(resource.attrTopicName);
     this.fifo = props.fifo || false;
-    this.masterKey = this.masterKey;
+    this.masterKey = props.masterKey;
   }
 }
